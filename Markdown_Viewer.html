@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Viewer with Dark Mode</title>
+    <script src="https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js"></script>
+    <style>
+        /* Light and Dark Mode Variables */
+        :root {
+            --bg-color: #f7f8fa;
+            --text-color: #333;
+            --container-bg: white;
+            --code-bg: #f5f5f5;
+            --table-bg: white;
+            --table-header-bg: #67a7eb;
+            --btn-bg: #007bff;
+            --btn-hover: #0056b3;
+            --pre-bg: #f5f5f5;
+        }
+
+        .dark-mode {
+            --bg-color: #1e1e1e;
+            --text-color: #ddd;
+            --container-bg: #2a2a2a;
+            --code-bg: #3b3b3b;
+            --table-bg: #2a2a2a;
+            --table-header-bg: #444;
+            --btn-bg: #ff9800;
+            --btn-hover: #e68a00;
+            --pre-bg: #000;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: var(--container-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: var(--text-color);
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            background-color: var(--btn-bg);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .file-label:hover {
+            background-color: var(--btn-hover);
+        }
+
+        #errorMessage {
+            color: red;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        #renderedMarkdown {
+            background-color: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        #renderedMarkdown h1,
+        #renderedMarkdown h2,
+        #renderedMarkdown h3 {
+            color: var(--btn-bg);
+        }
+
+        #renderedMarkdown ul,
+        #renderedMarkdown ol {
+            padding-left: 20px;
+        }
+
+        #renderedMarkdown li {
+            margin-bottom: 8px;
+        }
+
+        #renderedMarkdown pre {
+            background-color: var(--pre-bg);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #renderedMarkdown code {
+            background-color: var(--code-bg);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #renderedMarkdown a {
+            color: var(--btn-bg);
+            text-decoration: none;
+        }
+
+        #renderedMarkdown a:hover {
+            text-decoration: underline;
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background-color: var(--table-bg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--table-header-bg);
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        td code {
+            background-color: var(--code-bg);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            table {
+                width: 100%;
+                font-size: 14px;
+            }
+            th, td {
+                padding: 10px;
+            }
+        }
+
+        /* Dark Mode Toggle Button */
+        .dark-mode-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: var(--btn-bg);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .dark-mode-toggle:hover {
+            background: var(--btn-hover);
+        }
+    </style>
+</head>
+<body>
+
+    <button class="dark-mode-toggle">🌙 Dark Mode</button>
+
+    <div class="container">
+        <label for="fileInput" class="file-label">Choose Markdown File</label>
+        <input type="file" id="fileInput">
+        
+        <div id="renderedMarkdown"></div>
+        <p id="errorMessage"></p>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const fileInput = document.getElementById("fileInput");
+            const renderedMarkdown = document.getElementById("renderedMarkdown");
+            const errorMessage = document.getElementById("errorMessage");
+
+            fileInput.addEventListener("change", function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const markdownContent = e.target.result;
+
+                    try {
+                        const converter = new showdown.Converter({ tables: true });
+                        let htmlContent = converter.makeHtml(markdownContent);
+
+                        renderedMarkdown.innerHTML = htmlContent;
+                        errorMessage.textContent = '';
+                    } catch (error) {
+                        renderedMarkdown.innerHTML = '';
+                        errorMessage.textContent = 'Error parsing Markdown: ' + error.message;
+                    }
+                };
+
+                reader.readAsText(file);
+            });
+
+            applyDarkMode();
+        };
+
+        // Dark Mode Toggle
+        const darkModeToggle = document.querySelector(".dark-mode-toggle");
+
+        darkModeToggle.addEventListener("click", function() {
+            document.body.classList.toggle("dark-mode");
+            localStorage.setItem("darkMode", document.body.classList.contains("dark-mode") ? "enabled" : "disabled");
+            updateDarkModeButton();
+        });
+
+        function applyDarkMode() {
+            if (localStorage.getItem("darkMode") === "enabled") {
+                document.body.classList.add("dark-mode");
+            }
+            updateDarkModeButton();
+        }
+
+        function updateDarkModeButton() {
+            darkModeToggle.textContent = document.body.classList.contains("dark-mode") ? "☀️ Light Mode" : "🌙 Dark Mode";
+        }
+    </script>
+
+</body>
+</html>
